@@ -1,21 +1,18 @@
 cmake_minimum_required(VERSION 2.8)
 project(mex-moos)
 
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-set(CMakeScripts_MODULE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-set(CMAKE_MODULE_PATH ${CMakeScripts_MODULE_DIR})
-
-find_package(MOOS 10 REQUIRED)
+find_package( MOOS 10 REQUIRED )
 find_package( Matlab REQUIRED )
 
-set(LIBRARY_FULL_NAME mex-moos) 
+set(LIBRARY_FULL_NAME mex-moos)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
 # Declare the mex target name and associated source file.
-set(${LIBRARY_FULL_NAME}_MEX_TARGET mexmoos) 
-set(${LIBRARY_FULL_NAME}_MEX_SOURCE mex-moos.cpp )
-  
-  
+set(${LIBRARY_FULL_NAME}_MEX_TARGET mexmoos)
+set(${LIBRARY_FULL_NAME}_MEX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/mex-moos.cpp)
+
 # Explicitly set the output location for the mex file to be build/lib, and set
 # the extension to match the mex extension for the current platform.
 set(${LIBRARY_FULL_NAME}_MEX_FILE
@@ -35,13 +32,6 @@ foreach (INC_DIR ${MEX_API_PUBLIC_INCLUDE_DIRS})
   list(APPEND MEX_BUILD_INCLUDE_DIRS_CMDS "-I${INC_DIR}")
 endforeach()
 
-# We only need to _explicitly_ link against libraries that are used _directly_
-# in the MEX file.  As such we do not need to explicitly link against glog or
-# Ceres as they come in through the linking of -l${LIBRARY_FULL_NAME}.
-#
-# Note that we explicitly disable ensures in Sophus library when compiling mex
-# as the default ensure uses printf which is a macro for mexPrintf in MEX files
-# which does not have the same arguments.
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   # On Linux, the mex compiler does not properly use rpath linking (up to
   # at least 2013b), thus although the mex file will link, it will not save
@@ -55,32 +45,52 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   # spaces between it and the previous / next argument, see [1].
   #
   # [1]: http://www-01.ibm.com/support/docview.wss?uid=swg21329145
-  
-  option(FORCE_RPATH_LINKING "linking fix for up to r2013b" TRUE)
-  
-  if(FORCE_RPATH_LINKING)
-  	set(FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS
-    	"LDFLAGS='$$LDFLAGS,-rpath=${MATLAB_MEX_LIBRARIES_DIR},-rpath=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}'")
-  endif()
+  #
+  # The -Wl is important for MATLAB R2014+.
+  set(FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS
+    LDFLAGS='$$LDFLAGS -Wl,-rpath=${MATLAB_MEX_LIBRARIES_DIR},-rpath=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}')
 endif()
 
+if (POLICY CMP0042)
+  cmake_policy(GET CMP0042 OSX_USING_PATH)
+endif()
+if (APPLE AND OSX_USING_PATH)
+  # On OS X on newer versions of CMake when CMP0042 (rpath) is enabled by
+  # default, mex fails to correctly set the link library paths and so the
+  # libraries are not set.  Here we use the install_name_tool app to set
+  # the rpaths explicitly s/t the direct dependencies are picked up.
+  find_program(INSTALL_NAME_TOOL install_name_tool)
+  mark_as_advanced(FORCE INSTALL_NAME_TOOL)
 
-# IMPORTANT: DO **NOT** add VERBATIM to the end of this add_custom_command(),
-#            it screws up the odd MEX_LD_FLAGS escaping (adds wrapping "" and
-#            does crazy things with the $LDFLAGS statement).
-add_custom_command( OUTPUT ${${LIBRARY_FULL_NAME}_MEX_FILE}
-  COMMAND ${MATLAB_MEX_EXECUTABLE}
-  ARGS -DSOPHUS_DISABLE_ENSURES
-  ${MEX_BUILD_INCLUDE_DIRS_CMDS}
-  ${FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS}
-  -L${MOOS_DIR}/lib
-  -l${MOOS_LIBRARIES}
-  -output ${${LIBRARY_FULL_NAME}_MEX_FILE}
-  ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  DEPENDS ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
-  COMMENT "Building MEX interface for ${LIBRARY_FULL_NAME}.")
-
+  add_custom_command(OUTPUT ${${LIBRARY_FULL_NAME}_MEX_FILE}
+    COMMAND ${MATLAB_MEX_EXECUTABLE}
+    ARGS ${MEX_BUILD_INCLUDE_DIRS_CMDS}
+    ${FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS}
+    -L${MOOS_DIR}/lib
+    -l${MOOS_LIBRARIES}
+    -output ${${LIBRARY_FULL_NAME}_MEX_FILE}
+    ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
+    COMMAND ${INSTALL_NAME_TOOL}
+    ARGS -add_rpath ${MATLAB_MEX_LIBRARIES_DIR}
+    -add_rpath ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    ${${LIBRARY_FULL_NAME}_MEX_FILE}
+    DEPENDS ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
+    COMMENT "Building MEX interface for ${LIBRARY_FULL_NAME}.")
+else()
+  # IMPORTANT: DO **NOT** add VERBATIM to the end of this add_custom_command(),
+  #            it screws up the odd MEX_LD_FLAGS escaping (adds wrapping "" and
+  #            does crazy things with the $LDFLAGS statement).
+  add_custom_command(OUTPUT ${${LIBRARY_FULL_NAME}_MEX_FILE}
+    COMMAND ${MATLAB_MEX_EXECUTABLE}
+    ARGS ${MEX_BUILD_INCLUDE_DIRS_CMDS}
+    ${FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS}
+    -L${MOOS_DIR}/lib
+    -l${MOOS_LIBRARIES}
+    -output ${${LIBRARY_FULL_NAME}_MEX_FILE}
+    ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
+    DEPENDS ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
+    COMMENT "Building MEX interface for ${LIBRARY_FULL_NAME}.")
+endif()
 # Add custom target which is always built, that depends on the mex file to drive
 # it's creation.
 add_custom_target( ${${LIBRARY_FULL_NAME}_MEX_TARGET}
@@ -88,13 +98,7 @@ add_custom_target( ${${LIBRARY_FULL_NAME}_MEX_TARGET}
   SOURCES ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
   VERBATIM )
 
-
-message(STATUS "==>  IMPORTANT: To use ${LIBRARY_FULL_NAME} MEX "
-  "library, add the following to MATLAB's path:")
-message(STATUS "==>    -- ${CMAKE_CURRENT_SOURCE_DIR}")
-message(STATUS "==>    -- ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-
-
-
-
-
+message(STATUS "==> MRG: IMPORTANT: to use mex-moos with matlab, add the "
+  "following to MATLAB's path:")
+message(STATUS "==> MRG:   -- ${CMAKE_CURRENT_SOURCE_DIR}")
+message(STATUS "==> MRG:   -- ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.3.2)
 project(mex-moos)
 
 
@@ -6,7 +6,7 @@ set(CMakeScripts_MODULE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_MODULE_PATH ${CMakeScripts_MODULE_DIR})
 
 find_package(MOOS 10 REQUIRED)
-find_package( Matlab REQUIRED )
+find_package( Matlab REQUIRED MEX_COMPILER )
 
 set(LIBRARY_FULL_NAME mex-moos) 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
@@ -19,7 +19,7 @@ set(${LIBRARY_FULL_NAME}_MEX_SOURCE mex-moos.cpp )
 # Explicitly set the output location for the mex file to be build/lib, and set
 # the extension to match the mex extension for the current platform.
 set(${LIBRARY_FULL_NAME}_MEX_FILE
-  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${LIBRARY_FULL_NAME}_MEX_TARGET}.${MATLAB_MEX_EXTENSION})
+  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${LIBRARY_FULL_NAME}_MEX_TARGET}.${Matlab_MEX_EXTENSION})
 
 # Add custom command to build the mex file.
 #
@@ -75,7 +75,7 @@ string(REGEX REPLACE ".+::"
        ${MOOS_LIBRARIES} )
 
 add_custom_command( OUTPUT ${${LIBRARY_FULL_NAME}_MEX_FILE}
-  COMMAND ${MATLAB_MEX_EXECUTABLE}
+  COMMAND ${Matlab_MEX_COMPILER}
   ARGS -DSOPHUS_DISABLE_ENSURES
   ${MEX_BUILD_INCLUDE_DIRS_CMDS}
   ${FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS}

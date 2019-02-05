@@ -68,13 +68,19 @@ endif()
 # IMPORTANT: DO **NOT** add VERBATIM to the end of this add_custom_command(),
 #            it screws up the odd MEX_LD_FLAGS escaping (adds wrapping "" and
 #            does crazy things with the $LDFLAGS statement).
+
+# Strip namespace prefixes from library binary names
+string(REGEX REPLACE ".+::"
+       "" MOOS_LIB_BINARY_NAME
+       ${MOOS_LIBRARIES} )
+
 add_custom_command( OUTPUT ${${LIBRARY_FULL_NAME}_MEX_FILE}
   COMMAND ${MATLAB_MEX_EXECUTABLE}
   ARGS -DSOPHUS_DISABLE_ENSURES
   ${MEX_BUILD_INCLUDE_DIRS_CMDS}
   ${FORCE_AND_FIX_MEX_TO_USE_RPATH_LINKING_ARGS}
   -L${MOOS_DIR}/lib
-  -l${MOOS_LIBRARIES}
+  -l${MOOS_LIB_BINARY_NAME}
   -output ${${LIBRARY_FULL_NAME}_MEX_FILE}
   ${${LIBRARY_FULL_NAME}_MEX_SOURCE}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

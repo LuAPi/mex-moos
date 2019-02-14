@@ -324,7 +324,6 @@ void DoRegistrations()
 
 bool OnMOOSConnect(void * pParam)
 {
-    mexPrintf("DB connection established\n");
     DoRegistrations();
     return true;
 }

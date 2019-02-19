@@ -36,6 +36,7 @@ foreach (INC_DIR ${MEX_API_PUBLIC_INCLUDE_DIRS})
 endforeach()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  get_filename_component( MATLAB_MEX_LIBRARIES_DIR "${Matlab_MEX_LIBRARY}" DIRECTORY )
   # On Linux, the mex compiler does not properly use rpath linking (up to
   # at least 2013b), thus although the mex file will link, it will not save
   # full paths to the required libraries, thus otool -L / ldd with show
